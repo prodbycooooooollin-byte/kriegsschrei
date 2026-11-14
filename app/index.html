@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Kriegsschrei</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="logo">KRIEGSSCHREI</div>
+  <div class="meters">
+    <div class="mrow"><span>Mikro</span><div class="bar"><i id="hMic"></i><s id="hThr"></s></div></div>
+    <div class="mrow"><span>Rage</span><div class="bar rage"><i id="hRage"></i></div></div>
+  </div>
+  <div class="pill" id="pillObs"><span class="dot"></span><span id="pillObsTxt">OBS: nicht verbunden</span></div>
+  <button class="rage-btn" id="rageBtn" title="Gedrückt halten (oder Leertaste)">RAGE TESTEN</button>
+</header>
+
+<main>
+  <section class="stage">
+    <canvas id="preview"></canvas>
+    <div class="stage-hint" id="stageHint"></div>
+    <div class="edit-bar hidden" id="editBar">Zeichenmodus: direkt auf dein Gesicht malen</div>
+  </section>
+
+  <aside>
+    <nav class="tabs">
+      <button data-tab="start" class="on">Start</button>
+      <button data-tab="cam">Kamera</button>
+      <button data-tab="mic">Mikrofon</button>
+      <button data-tab="fx">Effekte</button>
+      <button data-tab="draw">Zeichnen</button>
+      <button data-tab="snd">Sound</button>
+    </nav>
+
+    <!-- START -->
+    <div class="tab on" id="tab-start">
+      <h3>Status</h3>
+      <ul class="checks">
+        <li id="stCam"><span class="ck"></span>Kamera</li>
+        <li id="stMic"><span class="ck"></span>Mikrofon</li>
+        <li id="stTrack"><span class="ck"></span>Gesichtserkennung</li>
+        <li id="stObs"><span class="ck"></span>In OBS sichtbar</li>
+      </ul>
+
+      <h3>In OBS einbauen</h3>
+      <div class="card">
+        <p><b>Ein Klick:</b> Kriegsschrei legt die Cam als Quelle in deiner aktuellen OBS-Szene an.</p>
+        <button class="primary" id="obsAuto">Automatisch zu OBS hinzufügen</button>
+        <details id="obsDetails">
+          <summary>OBS fragt nach einem Passwort?</summary>
+          <p class="small">In OBS: <b>Werkzeuge → WebSocket-Servereinstellungen</b>. Dort „WebSocket-Server aktivieren“ anhaken, dann „Verbindungsinformationen anzeigen“ und das Passwort hier eintragen.</p>
+          <label class="row"><span>Passwort</span><input type="password" id="obsPw" autocomplete="off"></label>
+          <label class="row"><span>Port</span><input type="number" data-k="obsPort" min="1" max="65535"></label>
+        </details>
+        <div class="msg" id="obsMsg"></div>
+      </div>
+      <div class="card">
+        <p><b>Oder von Hand:</b> In OBS Quelle hinzufügen → <b>Browser</b> → diesen Link einfügen, Breite/Höhe auf <b id="outSizeTxt">1280 × 720</b>.</p>
+        <div class="copy"><code id="obsUrl">…</code><button id="copyUrl">Kopieren</button></div>
+      </div>
+      <p class="small">Den Ton holst du in OBS mit <b>Anwendungsaudio-Aufnahme → Kriegsschrei</b> (macht der automatische Knopf mit). Fenster schließen = Kriegsschrei läuft unten rechts im Infobereich weiter, die Cam in OBS bleibt an.</p>
+    </div>
+
+    <!-- CAMERA -->
+    <div class="tab" id="tab-cam">
+      <label class="row"><span>Kamera</span><select data-k="camId" id="camSel"></select></label>
+      <label class="row"><span>Auflösung</span>
+        <select data-k="camRes"><option value="640x480">640 × 480</option><option value="1280x720">1280 × 720 (empfohlen)</option><option value="1920x1080">1920 × 1080</option></select></label>
+      <h3>Drehen <small>(nur du, Hintergrund und Laser bleiben gerade)</small></h3>
+      <div class="seg" data-seg="rotate"><button data-v="0">Normal</button><button data-v="90">90° ↻</button><button data-v="270">90° ↺</button><button data-v="180">180°</button></div>
+      <label class="rng"><span>Feindrehung <b data-v="fineRot"></b></span><input type="range" data-k="fineRot" data-fmt="deg" min="-30" max="30" step="0.5"></label>
+      <h3>Größe & Position</h3>
+      <label class="rng"><span>Zoom <b data-v="zoom"></b></span><input type="range" data-k="zoom" data-fmt="x" min="1" max="3" step="0.01"></label>
+      <label class="rng"><span>Links / Rechts <b data-v="panX"></b></span><input type="range" data-k="panX" data-fmt="pct" min="-1" max="1" step="0.01"></label>
+      <label class="rng"><span>Hoch / Runter <b data-v="panY"></b></span><input type="range" data-k="panY" data-fmt="pct" min="-1" max="1" step="0.01"></label>
+      <label class="chk"><input type="checkbox" data-k="mirror"> Spiegeln</label>
+      <h3>Bild</h3>
+      <label class="rng"><span>Helligkeit <b data-v="brightness"></b></span><input type="range" data-k="brightness" data-fmt="pct" min="0.5" max="1.8" step="0.01"></label>
+      <label class="rng"><span>Kontrast <b data-v="contrast"></b></span><input type="range" data-k="contrast" data-fmt="pct" min="0.5" max="1.8" step="0.01"></label>
+      <label class="rng"><span>Sättigung <b data-v="saturation"></b></span><input type="range" data-k="saturation" data-fmt="pct" min="0" max="2" step="0.01"></label>
+      <h3>Ausgabe für OBS</h3>
+      <label class="row"><span>Format</span>
+        <select data-k="outRes">
+          <option value="auto">Automatisch (wie Kamera)</option>
+          <option value="1280x720">1280 × 720 quer</option><option value="1920x1080">1920 × 1080 quer</option>
+          <option value="720x1280">720 × 1280 hochkant</option><option value="1080x1920">1080 × 1920 hochkant</option>
+          <option value="1080x1080">1080 × 1080 quadratisch</option><option value="720x720">720 × 720 quadratisch</option>
+        </select></label>
+      <label class="row"><span>Bilder/Sek.</span><select data-k="outFps"><option value="30">30</option><option value="60">60</option></select></label>
+      <label class="rng"><span>Bildqualität <b data-v="outQuality"></b></span><input type="range" data-k="outQuality" data-fmt="pct" min="0.5" max="0.98" step="0.01"></label>
+      <h3>Freistellung</h3>
+      <label class="rng"><span>Kanten weich <b data-v="cutoutSoft"></b></span><input type="range" data-k="cutoutSoft" data-fmt="px" min="0" max="10" step="0.5"></label>
+      <label class="chk"><input type="checkbox" data-k="invertMask"> Umkehren (falls statt dir der Raum sichtbar bleibt)</label>
+      <button class="ghost" id="camReset">Kamera-Einstellungen zurücksetzen</button>
+    </div>
+
+    <!-- MIC -->
+    <div class="tab" id="tab-mic">
+      <label class="row"><span>Mikrofon</span><select data-k="micId" id="micSel"></select></label>
+      <div class="bigmeter"><i id="mMic"></i><s id="mGate" class="gate"></s><s id="mThr"></s></div>
+      <p class="small">Grün = dein Pegel · weiße Linie = ab hier ist es „Rage“ · graue Linie = darunter wird alles ignoriert</p>
+      <button class="primary" id="calib">Automatisch einstellen</button>
+      <div class="msg" id="calibMsg"></div>
+      <h3>Pegel</h3>
+      <label class="rng"><span>Verstärkung <b data-v="gain"></b></span><input type="range" data-k="gain" data-fmt="x" min="0.2" max="6" step="0.05"></label>
+      <label class="rng"><span>Rage-Schwelle <b data-v="threshold"></b></span><input type="range" data-k="threshold" data-fmt="pct" min="0.1" max="0.95" step="0.01"></label>
+      <label class="rng"><span>Rauschsperre <b data-v="gate"></b></span><input type="range" data-k="gate" data-fmt="pct" min="0" max="0.6" step="0.01"></label>
+      <h3>Timing</h3>
+      <label class="rng"><span>Reagiert <b data-v="attack"></b></span><input type="range" data-k="attack" data-fmt="speed" min="0.05" max="1" step="0.01"></label>
+      <label class="rng"><span>Beruhigt sich <b data-v="release"></b></span><input type="range" data-k="release" data-fmt="speed" min="0.02" max="0.5" step="0.01"></label>
+      <label class="rng"><span>Laser bleibt nach dem Schrei an <b data-v="hold"></b></span><input type="range" data-k="hold" data-fmt="s" min="0" max="2" step="0.05"></label>
+      <label class="rng"><span>Rage baut sich auf <b data-v="buildSpeed"></b></span><input type="range" data-k="buildSpeed" data-fmt="x" min="0.2" max="4" step="0.1"></label>
+      <label class="rng"><span>Rage klingt ab <b data-v="coolSpeed"></b></span><input type="range" data-k="coolSpeed" data-fmt="x" min="0.2" max="4" step="0.1"></label>
+      <h3>Filter</h3>
+      <label class="chk"><input type="checkbox" data-k="echoCancellation"> Echo-Unterdrückung (verhindert, dass die eigenen Explosionen triggern)</label>
+      <label class="chk"><input type="checkbox" data-k="noiseSuppression"> Rauschunterdrückung</label>
+    </div>
+
+    <!-- EFFECTS -->
+    <div class="tab" id="tab-fx">
+      <div class="fx">
+        <label class="fxh chk"><input type="checkbox" data-k="lasers"> <b>Laser-Augen</b></label>
+        <div class="row"><span>Farbe</span><div class="swatches" data-swatch="laserColor">
+          <button style="--c:#ff2a1a" data-v="#ff2a1a"></button><button style="--c:#2a8bff" data-v="#2a8bff"></button><button style="--c:#28ff6a" data-v="#28ff6a"></button>
+          <button style="--c:#c13bff" data-v="#c13bff"></button><button style="--c:#ffc21a" data-v="#ffc21a"></button><button style="--c:#ffffff" data-v="#ffffff"></button>
+          <input type="color" data-k="laserColor"></div></div>
+        <label class="rng"><span>Dicke <b data-v="laserWidth"></b></span><input type="range" data-k="laserWidth" data-fmt="x" min="0.3" max="3" step="0.05"></label>
+        <label class="rng"><span>Einschlag <b data-v="laserImpact"></b></span><input type="range" data-k="laserImpact" data-fmt="x" min="0" max="2.5" step="0.05"></label>
+        <label class="rng"><span>Strahlen spreizen <b data-v="laserAngle"></b></span><input type="range" data-k="laserAngle" data-fmt="pct" min="0" max="1.5" step="0.01"></label>
+      </div>
+      <div class="fx">
+        <label class="fxh chk"><input type="checkbox" data-k="nose"> <b>Nase wächst beim Rage</b></label>
+        <label class="rng"><span>Maximale Größe <b data-v="noseMax"></b></span><input type="range" data-k="noseMax" data-fmt="x" min="1.2" max="4" step="0.05"></label>
+      </div>
+      <div class="fx">
+        <label class="fxh chk"><input type="checkbox" data-k="scene"> <b>Schlachtfeld im Hintergrund</b></label>
+        <p class="small">Baut sich auf, je länger du ragest. Bei vollem Rage rollt der Panzer rein.</p>
+      </div>
+      <div class="fx">
+        <div class="fxh"><b>Veteranen-Look</b> <small>(Helm, Dreck, Orden)</small></div>
+        <div class="seg" data-seg="outfit"><button data-v="loud">Beim Rage</button><button data-v="always">Immer</button><button data-v="off">Aus</button></div>
+        <label class="row"><span>Abzeichen</span><input type="text" data-k="patch" maxlength="14"></label>
+      </div>
+      <div class="fx">
+        <div class="fxh"><b>Gemalter Bart / Haare</b></div>
+        <div class="seg" data-seg="drawMode"><button data-v="loud">Beim Rage</button><button data-v="always">Immer</button><button data-v="off">Aus</button></div>
+      </div>
+      <div class="fx">
+        <label class="rng"><span><b>Bildwackeln</b> <b data-v="shakeAmt"></b></span><input type="range" data-k="shakeAmt" data-fmt="pct" min="0" max="2" step="0.05"></label>
+      </div>
+    </div>
+
+    <!-- DRAW -->
+    <div class="tab" id="tab-draw">
+      <div id="drawIntro">
+        <p>Mal dir einen Bart oder eine Frisur. Die Zeichnung klebt danach an deinem Gesicht und erscheint mit einem Puff, wenn du ragest.</p>
+        <button class="primary" id="drawStart">Foto machen & losmalen</button>
+        <div class="msg" id="drawMsg"></div>
+        <h3>Erscheint</h3>
+        <div class="seg" data-seg="drawMode"><button data-v="loud">Beim Rage</button><button data-v="always">Immer</button><button data-v="off">Aus</button></div>
+        <button class="ghost" id="drawClear2">Zeichnung löschen</button>
+      </div>
+      <div id="drawTools" class="hidden">
+        <h3>Werkzeug</h3>
+        <div class="seg" id="toolSeg"><button data-t="hair" class="on">Haar-Pinsel</button><button data-t="brush">Pinsel</button><button data-t="erase">Radierer</button></div>
+        <h3>Farbe</h3>
+        <div class="swatches" id="drawSw">
+          <button style="--c:#120b07" data-v="#120b07"></button><button style="--c:#3b2414" data-v="#3b2414"></button><button style="--c:#6b4423" data-v="#6b4423"></button>
+          <button style="--c:#c9a35b" data-v="#c9a35b"></button><button style="--c:#a8481e" data-v="#a8481e"></button><button style="--c:#9a9a9a" data-v="#9a9a9a"></button>
+          <button style="--c:#f2f0ea" data-v="#f2f0ea"></button><button style="--c:#ff2bd6" data-v="#ff2bd6"></button><button style="--c:#2bd9ff" data-v="#2bd9ff"></button>
+          <input type="color" id="drawColor" value="#3b2414">
+        </div>
+        <label class="rng"><span>Größe <b id="drawSizeV"></b></span><input type="range" id="drawSize" min="0.01" max="0.2" step="0.005" value="0.06"></label>
+        <label class="rng"><span>Deckkraft <b id="drawAlphaV"></b></span><input type="range" id="drawAlpha" min="0.1" max="1" step="0.05" value="0.9"></label>
+        <h3>Vorlagen</h3>
+        <div class="presets">
+          <button data-p="vollbart">Vollbart</button><button data-p="kinnbart">Kinnbart</button><button data-p="schnauzer">Schnauzer</button>
+          <button data-p="koteletten">Koteletten</button><button data-p="irokese">Irokese</button><button data-p="wildehaare">Wilde Haare</button>
+        </div>
+        <div class="btnrow"><button class="ghost" id="drawUndo">Rückgängig</button><button class="ghost" id="drawClear">Alles löschen</button></div>
+        <button class="primary" id="drawDone">Fertig</button>
+      </div>
+    </div>
+
+    <!-- SOUND -->
+    <div class="tab" id="tab-snd">
+      <label class="chk"><input type="checkbox" data-k="sounds"> Sounds an</label>
+      <label class="rng"><span>Gesamt <b data-v="volume"></b></span><input type="range" data-k="volume" data-fmt="pct" min="0" max="1" step="0.01"></label>
+      <label class="rng"><span>Schüsse <b data-v="volShots"></b></span><input type="range" data-k="volShots" data-fmt="pct" min="0" max="2" step="0.05"></label>
+      <label class="rng"><span>Explosionen <b data-v="volBooms"></b></span><input type="range" data-k="volBooms" data-fmt="pct" min="0" max="2" step="0.05"></label>
+      <label class="rng"><span>Panzer <b data-v="volTank"></b></span><input type="range" data-k="volTank" data-fmt="pct" min="0" max="2" step="0.05"></label>
+      <label class="rng"><span>Laser <b data-v="volLaser"></b></span><input type="range" data-k="volLaser" data-fmt="pct" min="0" max="2" step="0.05"></label>
+      <p class="small">Kopfhörer benutzen. Sonst hört das Mikro die Explosionen und der Rage hört nie auf.</p>
+    </div>
+  </aside>
+</main>
+<div id="toast"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
