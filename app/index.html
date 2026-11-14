@@ -10,8 +10,10 @@
   <div class="logo">KRIEGSSCHREI</div>
   <div class="meters">
     <div class="mrow"><span>Mikro</span><div class="bar"><i id="hMic"></i><s id="hThr"></s></div></div>
-    <div class="mrow"><span>Rage</span><div class="bar rage"><i id="hRage"></i></div></div>
+    <div class="mrow"><span>Rage</span><div class="bar rage"><i id="hRage"></i><s id="hS2" class="st"></s><s id="hS3" class="st"></s></div></div>
   </div>
+  <div class="stage-pill" id="stagePill">Ruhig</div>
+  <button class="update-btn hidden" id="updateBtn"></button>
   <div class="pill" id="pillObs"><span class="dot"></span><span id="pillObsTxt">OBS: nicht verbunden</span></div>
   <button class="rage-btn" id="rageBtn" title="Gedrückt halten (oder Leertaste)">RAGE TESTEN</button>
 </header>
@@ -60,6 +62,7 @@
         <div class="copy"><code id="obsUrl">…</code><button id="copyUrl">Kopieren</button></div>
       </div>
       <p class="small">Den Ton holst du in OBS mit <b>Anwendungsaudio-Aufnahme → Kriegsschrei</b> (macht der automatische Knopf mit). Fenster schließen = Kriegsschrei läuft unten rechts im Infobereich weiter, die Cam in OBS bleibt an.</p>
+      <p class="small" style="margin-top:16px"><span id="appVersion"></span> · Updates werden automatisch geladen.</p>
     </div>
 
     <!-- CAMERA -->
@@ -120,6 +123,22 @@
     <!-- EFFECTS -->
     <div class="tab" id="tab-fx">
       <div class="fx">
+        <div class="fxh"><b>Rage-Stufen</b></div>
+        <ol class="stages">
+          <li><b>Stufe 1:</b> Laser aus den Augen</li>
+          <li><b>Stufe 2:</b> Nase wächst, Look und Bart erscheinen</li>
+          <li><b>Stufe 3:</b> Kopf klappt auf, Sirene fährt raus</li>
+        </ol>
+        <label class="rng"><span>Stufe 2 ab <b data-v="stage2At"></b></span><input type="range" data-k="stage2At" data-fmt="rage" min="0.05" max="0.8" step="0.01"></label>
+        <label class="rng"><span>Stufe 3 ab <b data-v="stage3At"></b></span><input type="range" data-k="stage3At" data-fmt="rage" min="0.15" max="0.95" step="0.01"></label>
+        <div class="row"><span>Schlachtfeld ab</span><div class="seg" data-seg="sceneStage"><button data-v="1">Stufe 1</button><button data-v="2">Stufe 2</button><button data-v="3">Stufe 3</button></div></div>
+        <p class="small">Wie schnell die Stufen kommen, stellst du im Tab Mikrofon bei „Rage baut sich auf“ ein.</p>
+      </div>
+      <div class="fx">
+        <label class="fxh chk"><input type="checkbox" data-k="siren"> <b>Sirene aus dem Kopf (Stufe 3)</b></label>
+        <div class="seg" data-seg="sirenStyle"><button data-v="alarm">Fliegeralarm (rot)</button><button data-v="police">Martinshorn (blau)</button></div>
+      </div>
+      <div class="fx">
         <label class="fxh chk"><input type="checkbox" data-k="lasers"> <b>Laser-Augen</b></label>
         <div class="row"><span>Farbe</span><div class="swatches" data-swatch="laserColor">
           <button style="--c:#ff2a1a" data-v="#ff2a1a"></button><button style="--c:#2a8bff" data-v="#2a8bff"></button><button style="--c:#28ff6a" data-v="#28ff6a"></button>
@@ -130,12 +149,12 @@
         <label class="rng"><span>Strahlen spreizen <b data-v="laserAngle"></b></span><input type="range" data-k="laserAngle" data-fmt="pct" min="0" max="1.5" step="0.01"></label>
       </div>
       <div class="fx">
-        <label class="fxh chk"><input type="checkbox" data-k="nose"> <b>Nase wächst beim Rage</b></label>
+        <label class="fxh chk"><input type="checkbox" data-k="nose"> <b>Nase wächst (Stufe 2)</b></label>
         <label class="rng"><span>Maximale Größe <b data-v="noseMax"></b></span><input type="range" data-k="noseMax" data-fmt="x" min="1.2" max="4" step="0.05"></label>
       </div>
       <div class="fx">
         <label class="fxh chk"><input type="checkbox" data-k="scene"> <b>Schlachtfeld im Hintergrund</b></label>
-        <p class="small">Baut sich auf, je länger du ragest. Bei vollem Rage rollt der Panzer rein.</p>
+        <p class="small">Baut sich auf, je länger du ragest (ab der oben gewählten Stufe). Bei vollem Rage rollt der Panzer rein.</p>
       </div>
       <div class="fx">
         <div class="fxh"><b>Veteranen-Look</b> <small>(Helm, Dreck, Orden)</small></div>
@@ -191,6 +210,7 @@
       <label class="rng"><span>Explosionen <b data-v="volBooms"></b></span><input type="range" data-k="volBooms" data-fmt="pct" min="0" max="2" step="0.05"></label>
       <label class="rng"><span>Panzer <b data-v="volTank"></b></span><input type="range" data-k="volTank" data-fmt="pct" min="0" max="2" step="0.05"></label>
       <label class="rng"><span>Laser <b data-v="volLaser"></b></span><input type="range" data-k="volLaser" data-fmt="pct" min="0" max="2" step="0.05"></label>
+      <label class="rng"><span>Sirene <b data-v="volSiren"></b></span><input type="range" data-k="volSiren" data-fmt="pct" min="0" max="2" step="0.05"></label>
       <p class="small">Kopfhörer benutzen. Sonst hört das Mikro die Explosionen und der Rage hört nie auf.</p>
     </div>
   </aside>

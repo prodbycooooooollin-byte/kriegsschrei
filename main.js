@@ -75,6 +75,28 @@ ipcMain.on('frame', (e, ab) => {
 ipcMain.handle('obs-info', () => ({ port, url: `http://127.0.0.1:${port}/obs`, clients: clients.size }));
 ipcMain.handle('copy', (e, text) => { clipboard.writeText(String(text)); return true; });
 ipcMain.handle('open-external', (e, url) => { if (/^https:\/\//.test(url)) shell.openExternal(url); });
+ipcMain.handle('app-version', () => app.getVersion());
+
+/* ---------------- auto update (GitHub releases) ---------------- */
+let autoUpdater = null;
+function sendUpdate(u){ if (win && !win.isDestroyed()) win.webContents.send('update', u); }
+function setupUpdater(){
+  if (!app.isPackaged) return;
+  try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return; }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-available', i => sendUpdate({ state: 'downloading', version: i.version }));
+  autoUpdater.on('download-progress', p => sendUpdate({ state: 'progress', percent: p.percent }));
+  autoUpdater.on('update-downloaded', i => {
+    sendUpdate({ state: 'ready', version: i.version });
+    if (tray && tray.displayBalloon) tray.displayBalloon({ title: 'Kriegsschrei-Update bereit', content: `Version ${i.version} wird beim nächsten Neustart installiert.` });
+  });
+  autoUpdater.on('error', e => sendUpdate({ state: 'error', message: String((e && e.message) || e) }));
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 4000);
+  setInterval(check, 3 * 60 * 60 * 1000);
+}
+ipcMain.handle('update-install', () => { if (!autoUpdater) return; quitting = true; autoUpdater.quitAndInstall(true, true); });
 
 /* ---------------- window + tray ---------------- */
 async function createTray(){
@@ -130,4 +152,5 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler((wc, perm) => perm === 'media');
   await createTray();
   createWindow();
+  setupUpdater();
 });

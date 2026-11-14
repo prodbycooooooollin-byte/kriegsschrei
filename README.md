@@ -4,9 +4,17 @@ Facecam-Filter für Streamer. Sobald du laut wirst, schießen dir Laser aus den 
 
 ## Download
 
-**[Kriegsschrei.exe herunterladen](../../releases/latest)** (Windows, keine Installation nötig)
+**[Kriegsschrei-Setup herunterladen](../../releases/latest)** (Windows). Doppelklick installiert und startet die App in Sekunden, ohne Admin-Rechte. Danach aktualisiert sich Kriegsschrei von selbst.
 
-Windows zeigt beim ersten Start eventuell „Der Computer wurde durch Windows geschützt“, weil die Exe nicht signiert ist. Dann auf **Weitere Informationen → Trotzdem ausführen** klicken.
+Windows zeigt eventuell „Der Computer wurde durch Windows geschützt“, weil das Setup nicht signiert ist. Dann auf **Weitere Informationen → Trotzdem ausführen** klicken.
+
+## Rage-Stufen
+
+1. **Laser** aus den Augen, sobald du laut wirst
+2. **Nase wächst**, wenn du länger ragest. Look und gemalter Bart erscheinen.
+3. **Kopf klappt auf**, eine Sirene fährt raus, und das Schlachtfeld baut sich auf. Der Helm fliegt weg.
+
+Ab wann welche Stufe kommt, ist im Tab Effekte einstellbar.
 
 ## Features
 
@@ -37,4 +45,4 @@ npm install
 npm run dist
 ```
 
-Die Exe landet in `dist/Kriegsschrei.exe`. Gesichtserkennung und Freistellung laufen über [MediaPipe](https://github.com/google-ai-edge/mediapipe), komplett offline.
+Das Setup landet in `dist/`. Für ein Update `version` in `package.json` erhöhen und `Kriegsschrei-Setup-x.y.z.exe`, `.blockmap` und `latest.yml` an ein GitHub-Release hängen, dann holen sich installierte Apps die neue Version automatisch. Gesichtserkennung und Freistellung laufen über [MediaPipe](https://github.com/google-ai-edge/mediapipe), komplett offline.

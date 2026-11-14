@@ -4,5 +4,8 @@ contextBridge.exposeInMainWorld('ks', {
   obsInfo: () => ipcRenderer.invoke('obs-info'),
   onClients: cb => ipcRenderer.on('obs-clients', (e, n) => cb(n)),
   copy: text => ipcRenderer.invoke('copy', text),
-  openExternal: url => ipcRenderer.invoke('open-external', url)
+  openExternal: url => ipcRenderer.invoke('open-external', url),
+  version: () => ipcRenderer.invoke('app-version'),
+  onUpdate: cb => ipcRenderer.on('update', (e, u) => cb(u)),
+  installUpdate: () => ipcRenderer.invoke('update-install')
 });

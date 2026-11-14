@@ -2,7 +2,7 @@
 import { cfg, S, clamp, rnd } from './state.js';
 
 let actx = null, master = null, analyser = null, timeBuf = null, noiseBuf = null, micSrc = null;
-let laserGain, engGain, ambGain;
+let laserGain, engGain, ambGain, sirenA, sirenP;
 
 function noiseLoop(){ const s = actx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(); return s; }
 
@@ -44,6 +44,22 @@ export function initAudio(){
   const an = noiseLoop(); const anLp = actx.createBiquadFilter(); anLp.type = 'lowpass'; anLp.frequency.value = 90;
   an.connect(anLp).connect(ambGain);
 
+  // air-raid siren: slow rising and falling wail
+  sirenA = actx.createGain(); sirenA.gain.value = 0; sirenA.connect(master);
+  const saF = actx.createBiquadFilter(); saF.type = 'lowpass'; saF.frequency.value = 1800; saF.connect(sirenA);
+  const sa = actx.createOscillator(); sa.type = 'sawtooth'; sa.frequency.value = 560;
+  const sa2 = actx.createOscillator(); sa2.type = 'square'; sa2.frequency.value = 561.5;
+  const saL = actx.createOscillator(); saL.frequency.value = 1 / 6; const saLG = actx.createGain(); saLG.gain.value = 260;
+  saL.connect(saLG); saLG.connect(sa.frequency); saLG.connect(sa2.frequency);
+  const sa2g = actx.createGain(); sa2g.gain.value = 0.3; sa.connect(saF); sa2.connect(sa2g).connect(saF);
+  // police siren: two alternating tones
+  sirenP = actx.createGain(); sirenP.gain.value = 0; sirenP.connect(master);
+  const spF = actx.createBiquadFilter(); spF.type = 'lowpass'; spF.frequency.value = 2600; spF.connect(sirenP);
+  const sp = actx.createOscillator(); sp.type = 'sawtooth'; sp.frequency.value = 512;
+  const spL = actx.createOscillator(); spL.type = 'square'; spL.frequency.value = 0.75; const spLG = actx.createGain(); spLG.gain.value = 72;
+  spL.connect(spLG).connect(sp.frequency); sp.connect(spF);
+  [sa, sa2, saL, sp, spL].forEach(o => o.start());
+
   analyser = actx.createAnalyser(); analyser.fftSize = 1024;
   timeBuf = new Float32Array(analyser.fftSize);
 }
@@ -66,9 +82,12 @@ export function readRaw(){
   return clamp((20 * Math.log10(rms + 1e-7) + 55) / 50);
 }
 
-export function updateLoops(tankPres){
+export function updateLoops(tankPres, sirenLvl = 0){
   if (!actx) return;
   const now = actx.currentTime, on = cfg.sounds ? 1 : 0;
+  const sv = on * sirenLvl * 0.15 * cfg.volSiren;
+  sirenA.gain.setTargetAtTime(cfg.sirenStyle === 'police' ? 0 : sv, now, 0.1);
+  sirenP.gain.setTargetAtTime(cfg.sirenStyle === 'police' ? sv : 0, now, 0.1);
   laserGain.gain.setTargetAtTime(on * S.laserAmt * 0.16 * cfg.volLaser, now, 0.05);
   engGain.gain.setTargetAtTime(on * tankPres * 0.4 * cfg.volTank, now, 0.15);
   ambGain.gain.setTargetAtTime(on * clamp(S.build - 0.3) * 0.5 * cfg.volBooms, now, 0.3);
@@ -117,6 +136,24 @@ export function sfxSizzle(pan){
   const f = actx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 2500;
   const g = actx.createGain(); g.gain.setValueAtTime(0.12 * cfg.volLaser, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
   n.connect(f).connect(g).connect(panner(pan)); n.start(t, rnd(0, 2), 0.15);
+}
+// head opens: servo whine, pneumatic hiss, clank
+export function sfxHeadOpen(){
+  if (!on()) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(620, t + 0.7);
+  const of = actx.createBiquadFilter(); of.type = 'lowpass'; of.frequency.value = 1400;
+  const og = actx.createGain(); og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.14, t + 0.08); og.gain.setValueAtTime(0.14, t + 0.6); og.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+  o.connect(of).connect(og).connect(master); o.start(t); o.stop(t + 0.85);
+  const n = actx.createBufferSource(); n.buffer = noiseBuf;
+  const nf = actx.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.value = 2500;
+  const ng = actx.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.3, t + 0.12); ng.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+  n.connect(nf).connect(ng).connect(master); n.start(t, rnd(0, 1), 1.2);
+  const c = actx.createBufferSource(); c.buffer = noiseBuf;
+  const cf = actx.createBiquadFilter(); cf.type = 'bandpass'; cf.frequency.value = 900; cf.Q.value = 6;
+  const cg = actx.createGain(); cg.gain.setValueAtTime(0.0001, t + 0.74); cg.gain.exponentialRampToValueAtTime(0.5, t + 0.75); cg.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+  c.connect(cf).connect(cg).connect(master); c.start(t + 0.74, rnd(0, 1), 0.2);
 }
 // "poof" when the drawn beard appears
 export function sfxPoof(){

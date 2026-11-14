@@ -36,7 +36,11 @@ export function drawOutfit(G, a){
 
   const d = { x: F.chin.x - F.fore.x, y: F.chin.y - F.fore.y };
   const cx = (d.x * ex.x + d.y * ex.y) / fw, cy = (d.x * ey.x + d.y * ey.y) / fw;
-  ctx.save(); ctx.translate(F.fore.x, F.fore.y); ctx.rotate(ang); ctx.scale(fw, fw);
+  // when the head opens (stage 3) the helmet gets launched off
+  const k = clamp(S.sirenAmt * 2.5);
+  ctx.save();
+  ctx.translate(F.fore.x - ey.x * fw * 3 * k + ex.x * fw * 1.4 * k, F.fore.y - ey.y * fw * 3 * k + ex.y * fw * 1.4 * k);
+  ctx.rotate(ang + k * 2.6); ctx.scale(fw, fw); ctx.globalAlpha = a * (1 - k);
   ctx.strokeStyle = '#2b2216'; ctx.lineWidth = 0.035; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(-0.56, 0.1); ctx.quadraticCurveTo(-0.5, cy * 0.85, cx, cy + 0.03); ctx.quadraticCurveTo(0.5, cy * 0.85, 0.56, 0.1); ctx.stroke();
   ctx.fillStyle = '#353d20'; ctx.beginPath(); ctx.ellipse(0, 0.08, 0.8, 0.12, 0, 0, Math.PI * 2); ctx.fill();

@@ -1,4 +1,4 @@
-// Battlefield background, war events, particles
+﻿// Battlefield background, war events, particles
 import { cfg, S, clamp, lerp, rnd, easeBack, mulberry32, HZ } from './state.js';
 import { sfxGunshot, sfxExplosion, sfxClank } from './audio.js';
 
@@ -31,7 +31,7 @@ const ruins = [], trees = [], fires = [];
 export const bgParts = [], fgParts = [];
 const booms = [], flashes = [], tracers = [];
 export const tank = { st: 'off', x: 0, fire: 3, recoil: 0, wheel: 0, moving: false, pres: 0, clank: 0, muzzle: { x: 0, y: 0 } };
-const rise = (s, l) => { const t = clamp((S.build - s) / l); return t <= 0 ? 0 : easeBack(t); };
+const rise = (s, l) => { const t = clamp((S.sb - s) / l); return t <= 0 ? 0 : easeBack(t); };
 export const sx = x => clamp((x / S.W) * 2 - 1, -1, 1); // stereo pan from screen x
 
 /* ---------- events ---------- */
@@ -63,8 +63,8 @@ function tankFire(){
   setTimeout(() => bigBoom(rnd(W * 0.6, W * 0.97), HZ() + rnd(0, 12), rnd(0.8, 1.1)), 450);
 }
 function tankUpdate(dt){
-  if (tank.st === 'off' && S.build > 0.78) { tank.st = 'in'; tank.x = -W * 0.36; }
-  if ((tank.st === 'in' || tank.st === 'stay') && S.build < 0.4) tank.st = 'out';
+  if (tank.st === 'off' && S.sb > 0.78) { tank.st = 'in'; tank.x = -W * 0.36; }
+  if ((tank.st === 'in' || tank.st === 'stay') && S.sb < 0.4) tank.st = 'out';
   tank.moving = tank.st === 'in' || tank.st === 'out';
   if (tank.st === 'in') { tank.x += W * 0.12 * dt; if (tank.x >= W * 0.04) { tank.st = 'stay'; tank.fire = 1.2; } }
   if (tank.st === 'out') { tank.x += W * 0.16 * dt; if (tank.x > W + 20) tank.st = 'off'; }
@@ -80,7 +80,7 @@ function tankUpdate(dt){
 export function sceneEvents(dt){
   dims();
   if (!cfg.scene) { tank.st = 'off'; tank.pres = lerp(tank.pres, 0, 0.1); return; }
-  const b = S.build;
+  const b = S.sb;
   if (b > 0.4 && Math.random() < (b - 0.4) * 10 * dt) shot(rnd(0, W), rnd(0, 1));
   if (b > 0.6 && Math.random() < 0.5 * dt) mgBurst();
   if (b > 0.55 && Math.random() < (b - 0.5) * 0.9 * dt) bigBoom(rnd(0, W), HZ() + rnd(-6, 18), rnd(0.4, 1));
@@ -293,10 +293,10 @@ export function clearSceneFx(dt){ stepParts(bgParts, dt); booms.length = 0; flas
 
 export function drawFG(dt, laserRgb){
   dims();
-  if (S.build > 0.4 && fgParts.length < 500 && Math.random() < S.build * 12 * dt)
+  if (S.sb > 0.4 && fgParts.length < 500 && Math.random() < S.sb * 12 * dt)
     fgParts.push({ kind: 'ember', x: rnd(0, W), y: H + 10, vx: rnd(-20, 30), vy: -rnd(40, 120), life: rnd(3, 6), max: 6, size: rnd(1, 3) * W / 1280 });
   stepParts(fgParts, dt); drawParts(fgParts);
-  const vr = 0.35 * S.build + 0.35 * S.laserAmt;
+  const vr = 0.35 * S.sb + 0.35 * S.laserAmt;
   if (vr > 0.01) {
     const c = laserRgb || [200, 0, 0];
     const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);

@@ -1,7 +1,8 @@
 // Kriegsschrei – renderer: camera, tracking, render loop, UI, OBS
 import { FilesetResolver, FaceLandmarker, ImageSegmenter } from '../../node_modules/@mediapipe/tasks-vision/vision_bundle.mjs';
 import { cfg, DEF, save, S, drawing, saveDrawing, clamp, lerp, rnd, easeBack, hexToRgb } from './state.js';
-import { initAudio, connectMic, hasMic, readRaw, resumeAudio, setVolume, updateLoops, sfxPoof } from './audio.js';
+import { initAudio, connectMic, hasMic, readRaw, resumeAudio, setVolume, updateLoops, sfxPoof, sfxHeadOpen } from './audio.js';
+import { initSiren, captureLid, eraseDome, drawCavity, drawHeadOpen, sirenBurst } from './siren.js';
 import { initScene, drawScene, sceneEvents, clearSceneFx, drawFG, tank } from './scene.js';
 import { initFace, faceGeom, toLocal, drawOutfit, drawNose, renderStrokes, poofAt, PRESETS, drawLaserFx, drawLasers } from './face.js';
 
@@ -16,7 +17,7 @@ const rc = document.createElement('canvas'), rctx = rc.getContext('2d');        
 const pc = document.createElement('canvas'), pctx = pc.getContext('2d');         // cut-out person
 const mc = document.createElement('canvas'), mctx = mc.getContext('2d', { willReadFrequently: true }); // segmentation mask
 const pv = $('#preview'), pvx = pv.getContext('2d');                             // on-screen preview
-initScene(ctx); initFace(ctx);
+initScene(ctx); initFace(ctx); initSiren(ctx);
 const video = document.createElement('video'); video.playsInline = true; video.muted = true;
 
 let hasCam = false, hasMask = false, maskImg = null, face = null, seg = null, trackingState = 'wait';
@@ -137,7 +138,7 @@ async function fillDevices(){
 }
 
 /* ---------------- state per frame ---------------- */
-let wantDrawPrev = false;
+let wantDrawPrev = false, wantSirenPrev = false;
 function updateState(dt){
   let raw = readRaw(); S.raw = raw;
   if (raw < cfg.gate) raw = 0;
@@ -147,19 +148,31 @@ function updateState(dt){
   if (S.lvl > cfg.threshold) S.loudT = cfg.hold; else S.loudT -= dt;
   const loud = S.loudT > 0; S.loud = loud;
   const over = loud ? clamp(0.5 + (S.lvl - cfg.threshold) / (1 - cfg.threshold + 1e-3)) : 0;
-  S.build = clamp(S.build + (loud ? 0.32 * cfg.buildSpeed * (0.6 + over) : -0.1 * cfg.coolSpeed) * dt);
+  // rage meter: fills while screaming (~8 s to full at default speed), drains when quiet
+  S.build = clamp(S.build + (loud ? 0.12 * cfg.buildSpeed * (0.6 + over) : -0.1 * cfg.coolSpeed) * dt);
+  const s2 = cfg.stage2At, s3 = Math.max(cfg.stage3At, s2 + 0.05);
+  S.stage = (S.build < 0.002 && !loud) ? 0 : S.build < s2 ? 1 : S.build < s3 ? 2 : 3;
+  const sceneStart = cfg.sceneStage === 1 ? 0 : cfg.sceneStage === 2 ? s2 : s3;
+  S.sb = sceneStart >= 1 ? 0 : clamp((S.build - sceneStart) / (1 - sceneStart));
+  // stage 1: laser
   S.laserAmt = lerp(S.laserAmt, (loud && cfg.lasers) ? 0.6 + 0.4 * over : 0, 1 - Math.exp(-dt * (loud ? 18 : 8)));
-  const wantOutfit = cfg.outfit === 'always' || (cfg.outfit === 'loud' && S.build > 0.25);
+  // stage 2: nose, veteran look, drawing
+  const wantOutfit = cfg.outfit === 'always' || (cfg.outfit === 'loud' && S.build >= s2);
   S.outfitAmt = lerp(S.outfitAmt, wantOutfit ? 1 : 0, 1 - Math.exp(-dt * 4));
-  S.noseAmt = lerp(S.noseAmt, cfg.nose ? clamp(S.build * 1.6) : 0, 1 - Math.exp(-dt * 3));
-  const wantDraw = drawing.strokes.length > 0 && (cfg.drawMode === 'always' || (cfg.drawMode === 'loud' && S.build > 0.15));
+  S.noseAmt = lerp(S.noseAmt, cfg.nose ? clamp((S.build - s2) / 0.15) : 0, 1 - Math.exp(-dt * 3));
+  const wantDraw = drawing.strokes.length > 0 && (cfg.drawMode === 'always' || (cfg.drawMode === 'loud' && S.build >= s2));
+  // stage 3: head opens, siren comes out
+  const wantSiren = cfg.siren && S.build >= s3;
+  if (wantSiren && !wantSirenPrev && S.sirenAmt < 0.05 && lastG) { sfxHeadOpen(); sirenBurst(lastG); }
+  wantSirenPrev = wantSiren;
+  S.sirenAmt = clamp(S.sirenAmt + (wantSiren ? dt / 1.6 : -dt / 0.9));
   if (wantDraw && !wantDrawPrev && lastG && cfg.drawMode === 'loud') { poofAt(lastG); sfxPoof(); }
   wantDrawPrev = wantDraw;
   S.drawAmt = lerp(S.drawAmt, wantDraw ? 1 : 0, 1 - Math.exp(-dt * (wantDraw ? 7 : 3)));
   S.shake *= Math.exp(-dt * 6); S.flash *= Math.exp(-dt * 5);
   if (loud) S.shake = Math.max(S.shake, S.laserAmt * 0.2);
   sceneEvents(dt);
-  updateLoops(tank.pres);
+  updateLoops(tank.pres, clamp((S.sirenAmt - 0.3) / 0.6));
 }
 
 /* ---------------- render ---------------- */
@@ -174,13 +187,14 @@ function faceOvalMask(c, G){
   g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = g2; c.fillRect(cx - r * 1.6, cy + r * 0.3, r * 3.2, r * 3.2);
 }
-function drawPerson(G){
+function drawPerson(G, siren){
   pctx.globalCompositeOperation = 'copy'; pctx.drawImage(rc, 0, 0);
   pctx.globalCompositeOperation = 'destination-in';
   if (hasMask) { pctx.filter = cfg.cutoutSoft > 0 ? `blur(${cfg.cutoutSoft}px)` : 'none'; pctx.drawImage(mc, 0, 0, S.W, S.H); }
   else if (G) faceOvalMask(pctx, G);
   pctx.filter = 'none'; pctx.globalCompositeOperation = 'source-over';
-  S.personFilter = `sepia(${0.35 * S.build}) contrast(${1 + 0.15 * S.build}) saturate(${1 - 0.3 * S.build})`;
+  if (siren && G) { captureLid(G, pc); eraseDome(pctx, G); }
+  S.personFilter = `sepia(${0.35 * S.sb}) contrast(${1 + 0.15 * S.sb}) saturate(${1 - 0.3 * S.sb})`;
   ctx.save(); mirrorT(ctx); ctx.filter = S.personFilter; ctx.drawImage(pc, 0, 0); ctx.restore();
 }
 function render(dt){
@@ -193,15 +207,21 @@ function render(dt){
   else { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2a2a2a'); g.addColorStop(1, '#121212'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
   const faceVis = S.F && S.T - S.faceSeen < 0.4;
   const G = faceVis ? faceGeom() : null;
-  let sceneA = cfg.scene ? clamp(S.build * 3.5) : 0;
+  let sceneA = cfg.scene ? clamp(S.sb * 3.5) : 0;
   const canCut = hasCam && (hasMask || G);
   if (hasCam && !canCut) sceneA = Math.min(sceneA, 0.45);
+  const siren = !!G && S.sirenAmt > 0.001;
+  // the opened skull must reveal the battlefield, so make it opaque at least as far as the lid is open
+  if (siren && cfg.scene && canCut) sceneA = Math.max(sceneA, clamp(S.sirenAmt * 2.2));
   S.personFilter = 'none';
-  if (sceneA > 0.001) { drawScene(sceneA, dt); if (canCut) drawPerson(G); }
+  const cutDrawn = sceneA > 0.001 && canCut;
+  if (sceneA > 0.001) { drawScene(sceneA, dt); if (canCut) drawPerson(G, siren); }
   else clearSceneFx(dt);
+  if (siren && !cutDrawn) { captureLid(G, hasCam ? rc : cv); drawCavity(G); }
   if (G) {
     if (cfg.nose && S.noseAmt > 0.01 && hasCam) drawNose(G, S.noseAmt, rc);
     if (S.drawAmt > 0.01 && drawing.strokes.length) renderStrokes(ctx, G, clamp(S.drawAmt), 0.75 + 0.25 * easeBack(clamp(S.drawAmt)), drawing.strokes);
+    if (siren) drawHeadOpen(G);
     if (S.outfitAmt > 0.01) drawOutfit(G, S.outfitAmt);
   }
   drawLaserFx(dt);
@@ -287,7 +307,8 @@ const FMT = {
   deg: v => (v > 0 ? '+' : '') + v + '°',
   s: v => v.toFixed(2) + ' s',
   px: v => v + ' px',
-  speed: v => v < 0.15 ? 'langsam' : v < 0.45 ? 'mittel' : 'schnell'
+  speed: v => v < 0.15 ? 'langsam' : v < 0.45 ? 'mittel' : 'schnell',
+  rage: v => `${Math.round(v * 100)} % (ca. ${(v / (0.12 * cfg.buildSpeed * 1.25)).toFixed(1)} s schreien)`
 };
 const setEl = (el, v) => { if (el.type === 'checkbox') el.checked = !!v; else el.value = v; };
 function refreshAll(){
@@ -460,6 +481,9 @@ function updateUI(dt){
   uiT -= dt; if (uiT > 0) return; uiT = 0.06;
   const lv = (S.lvl * 100).toFixed(1) + '%';
   $('#hMic').style.width = lv; $('#hThr').style.left = cfg.threshold * 100 + '%'; $('#hRage').style.width = (S.build * 100).toFixed(1) + '%';
+  $('#hS2').style.left = cfg.stage2At * 100 + '%'; $('#hS3').style.left = Math.max(cfg.stage3At, cfg.stage2At + 0.05) * 100 + '%';
+  const sp = $('#stagePill'); sp.className = 'stage-pill' + (S.stage ? ' s' + S.stage : '');
+  sp.textContent = S.stage ? 'STUFE ' + S.stage : 'Ruhig';
   $('#mMic').style.width = lv; $('#mThr').style.left = cfg.threshold * 100 + '%'; $('#mGate').style.left = cfg.gate * 100 + '%';
   const camLabel = camStream ? (camStream.getVideoTracks()[0]?.label || 'Kamera') : '';
   setCheck('stCam', hasCam ? true : (camError ? false : null), 'Kamera', hasCam ? camLabel : camError || 'wird gestartet …');
@@ -483,7 +507,7 @@ function loop(){
       setupDims(); drawRotated();
       const ts = Math.max(now, lastTs + 1); lastTs = ts;
       if (face) { try { updateFace(face.detectForVideo(rc, ts)); } catch (e) {} }
-      if (seg && cfg.scene) {
+      if (seg && (cfg.scene || cfg.siren)) {
         try { seg.segmentForVideo(rc, ts, res => { const m = res.confidenceMasks; if (m && m.length) updateMask(m[m.length > 1 ? 1 : 0]); }); } catch (e) {}
       }
     } else if (!hasCam) setupDims();
@@ -510,6 +534,20 @@ if (!isApp) window.__ks = { S, cfg, drawing, startEditor, stopEditor };
     obsUrl = info.url; obsClients = info.clients;
     $('#obsUrl').textContent = obsUrl;
     window.ks.onClients(n => { obsClients = n; });
+    // auto update: download runs in the background, the button appears once it's ready
+    const ub = $('#updateBtn');
+    window.ks.onUpdate(u => {
+      if (u.state === 'downloading' || u.state === 'progress') {
+        ub.classList.remove('hidden'); ub.classList.add('busy'); ub.disabled = true;
+        ub.textContent = u.state === 'progress' ? `Update lädt … ${Math.round(u.percent)} %` : `Update ${u.version} lädt …`;
+      } else if (u.state === 'ready') {
+        ub.classList.remove('hidden', 'busy'); ub.disabled = false;
+        ub.textContent = `Update ${u.version}: jetzt neu starten`;
+        toast(`Version ${u.version} ist bereit. Klick oben auf „jetzt neu starten“ oder es wird beim nächsten Beenden installiert.`, 8000);
+      } else if (u.state === 'error') { ub.classList.add('hidden'); }
+    });
+    ub.addEventListener('click', () => window.ks.installUpdate());
+    $('#appVersion').textContent = 'Version ' + await window.ks.version();
   } else $('#obsUrl').textContent = 'nur in der App verfügbar';
   await openCam();
   await openMic();

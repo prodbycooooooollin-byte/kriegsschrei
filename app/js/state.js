@@ -16,6 +16,8 @@ export const DEF = {
   // microphone
   micId: '', gain: 1, threshold: 0.55, gate: 0.12, attack: 0.6, release: 0.12, hold: 0.3,
   buildSpeed: 1, coolSpeed: 1, noiseSuppression: false, echoCancellation: true,
+  // rage stages: 1 = laser, 2 = nose (+ look/drawing), 3 = siren out of the head (+ battlefield)
+  stage2At: 0.3, stage3At: 0.6, sceneStage: 3, siren: true, sirenStyle: 'alarm',
   // effects
   lasers: true, laserColor: '#ff2a1a', laserWidth: 1, laserImpact: 1, laserAngle: 0.5,
   scene: true, cutoutSoft: 2, invertMask: false,
@@ -24,7 +26,7 @@ export const DEF = {
   drawMode: 'loud',
   shakeAmt: 1,
   // sound
-  sounds: true, volume: 0.6, volShots: 1, volBooms: 1, volTank: 1, volLaser: 1,
+  sounds: true, volume: 0.6, volShots: 1, volBooms: 1, volTank: 1, volLaser: 1, volSiren: 1,
   // obs
   obsPort: 4455
 };
@@ -42,7 +44,7 @@ export function saveDrawing(){ try { localStorage.setItem('ks2-drawing', JSON.st
 
 export const S = {
   W: 1280, H: 720, T: 0,
-  raw: 0, lvl: 0, loudT: 0, loud: false, over: 0, build: 0,
+  raw: 0, lvl: 0, loudT: 0, loud: false, over: 0, build: 0, sb: 0, stage: 0, sirenAmt: 0,
   laserAmt: 0, outfitAmt: 0, noseAmt: 0, drawAmt: 0,
   shake: 0, flash: 0, simLoud: false,
   F: null, faceSeen: -10, personFilter: 'none'

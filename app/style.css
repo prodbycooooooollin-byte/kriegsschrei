@@ -17,6 +17,15 @@ header{height:60px;display:flex;align-items:center;gap:20px;padding:0 18px;borde
 .bar i{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(90deg,#3f7a2a,#c9a640 65%,#e0321e)}
 .bar.rage i{background:linear-gradient(90deg,#7a2a1a,#e0321e)}
 .bar s,.bigmeter s{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff}
+.bar s.st{background:rgba(255,255,255,.55);width:1px}
+.stage-pill{min-width:92px;text-align:center;padding:6px 10px;border-radius:6px;font:700 13px "Segoe UI",sans-serif;letter-spacing:.5px;background:#1d1a13;border:1px solid var(--line);color:var(--muted)}
+.stage-pill.s1{background:#5a1a10;color:#ffd9cf;border-color:#a33}
+.stage-pill.s2{background:#8a2a12;color:#fff;border-color:#e0321e}
+.stage-pill.s3{background:#e0321e;color:#fff;border-color:#ff7a5a;box-shadow:0 0 16px rgba(224,50,30,.7)}
+.update-btn{background:var(--green);border:0;border-radius:8px;padding:8px 14px;font-weight:600;color:#0d0c09}
+.update-btn.busy{background:#2b3a24;color:#cfe6c4;cursor:default}
+ol.stages{margin:4px 0 8px;padding-left:18px;color:var(--muted)}
+ol.stages b{color:var(--text)}
 .pill{display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line);border-radius:20px;font-size:12px;color:var(--muted)}
 .pill .dot{width:8px;height:8px;border-radius:50%;background:#665f48}
 .pill.ok{color:var(--text)} .pill.ok .dot{background:var(--green);box-shadow:0 0 8px var(--green)}

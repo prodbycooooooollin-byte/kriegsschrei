@@ -1,17 +1,18 @@
 {
   "name": "kriegsschrei",
   "productName": "Kriegsschrei",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Kriegsschrei Facecam-Filter",
   "author": "Kriegsschrei",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win nsis --publish never"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "0.10.14"
+    "@mediapipe/tasks-vision": "0.10.14",
+    "electron-updater": "6.3.9"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -24,11 +25,21 @@
       "main.js",
       "preload.js",
       "app/**/*",
-      "node_modules/@mediapipe/tasks-vision/**/*"
+      "package.json"
     ],
     "asar": true,
     "directories": { "output": "dist" },
-    "win": { "target": "portable", "signAndEditExecutable": false },
-    "portable": { "artifactName": "Kriegsschrei.exe" }
+    "win": { "target": "nsis", "signAndEditExecutable": false },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Kriegsschrei",
+      "artifactName": "Kriegsschrei-Setup-${version}.${ext}"
+    },
+    "publish": [
+      { "provider": "github", "owner": "prodbycooooooollin-byte", "repo": "kriegsschrei" }
+    ]
   }
 }
